@@ -1,0 +1,17 @@
+# created by virtualenv automatically
+.idea
+Lib
+man
+Scripts
+*.*
+
+!requirements.txt
+!.gitignore
+!*.py
+!host_angents/
+
+influxdb_cloud.py
+influxdb_mofengfeng.py
+main.py
+test.py
+pastebin.py
