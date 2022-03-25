@@ -84,14 +84,16 @@ def login():
             password = login["password"]
 
             with TinyDB(DB_USER) as db:
-                item = Query()
-                # db.search(user["username"] == username)
 
-                query = db.search(
-                    (item['username'] == username)
-                    and (item['password'] == md5(password))
-                )
+                query = db.search(Query().fragment(
+                    {
+                        'username': username,
+                        "password": md5(password)
+                    }
+                ))
+
                 # print(query)
+
                 if len(query) == 1:
                     user = query[0]
                     return json.dumps({
