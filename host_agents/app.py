@@ -187,6 +187,13 @@ def creat_agent():
         if r.status_code != 200:
             return json.dumps({"message": "invalid args"}), 403
 
+        res_dict = r.json()
+        if 'error' in res_dict.keys():
+            return json.dumps({"message": "参数输入有误"}), 403
+
+        if 'data' not in res_dict.keys():
+            return json.dumps({"message": "token正确但path下无数据"}), 403
+
         # 加入agents数据库
         with TinyDB(DB_AGENT) as db:
             newAgent = {
@@ -223,6 +230,40 @@ def get_agents_by_username():
             query = db.search(Query().fragment({'username': username}))
             print(query)
             return json.dumps(query), 200
+
+    return ERR_UNKNOWN_ENDPOINT
+
+
+# 以agentID删除agent
+@app.route("/api/deleteAgent", methods=['POST'])
+def delete_agent_by_agentID():
+    if request.method == "POST":
+
+        req_dict = request.json
+        print(type(req_dict), req_dict)
+        if not isValidStrDict(req_dict, ['username', 'loginTOKEN', 'token', 'shard', 'path']):
+            return ERR_WRONG_KEY_OR_VALUE
+
+        username = req_dict["username"]
+        loginTOKEN = req_dict["loginTOKEN"]
+        token = req_dict["token"]
+        shard = req_dict["shard"]
+        path = req_dict["path"]
+
+        # 验证登录有效性
+        if not isValidLoginTOKEN(DB_USER, username, loginTOKEN):
+            return ERR_INVALID_LOGIN
+
+        with TinyDB(DB_AGENT) as db:
+            query = db.search(Query().fragment({'username': username, 'token': token, 'path': path, 'shard': shard}))
+            if len(query) == 0:
+                return json.dumps({"message": "agentID not found"}), 404
+            elif len(query) >= 1:
+                db.remove(Query().fragment({'username': username, 'token': token, 'path': path, 'shard': shard}))
+                return json.dumps({"message": "delete success"}), 200
+            else:
+                print('unknown error')
+                return ERR_UNKNOWN_ENDPOINT
 
     return ERR_UNKNOWN_ENDPOINT
 
