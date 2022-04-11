@@ -5,6 +5,7 @@ man
 Scripts
 *.*
 
+!readme.md
 !requirements.txt
 !.gitignore
 !*.py
