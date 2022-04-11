@@ -1,5 +1,7 @@
 # Mofeng的Screeps图表信息收集代理--后端
 
+前端仓库： https://github.com/DiamondMofeng/ScreepsAgent-frontend
+
 使用python的Flask框架作为基础。使用现成的screeps-api、grafana-api、influxdb-api模块帮助调用接口。   
 后端的入口为app.py，定时使用getDataByAgent.py从tinyDB中获取代理数据，以访问官方接口并将memory/path中数据存入influxdb。
 
