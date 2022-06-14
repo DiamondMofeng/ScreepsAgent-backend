@@ -1,8 +1,12 @@
 import json
 import time
 import sys
+import traceback
+from base64 import b64decode
+from gzip import GzipFile
+from io import BytesIO
 
-import screepsapi
+import requests
 
 import certifi
 
@@ -43,12 +47,27 @@ if __name__ == '__main__':
                     shard = agent["shard"]
                     PLAYERNAME = agent["username"]
 
-                    api = screepsapi.API(token=screepsTOKEN)
-                    stats = api.memory(memoryPath, shard)['data']
+                    res_stats = requests.get(
+                        f'https://screeps.com/api/user/memory?_token={screepsTOKEN}&shard={shard}&path={memoryPath}',
+                        timeout=10)
+                    if res_stats.status_code == 401:
+                        raise Exception('401 not authorized')
+
+                    stats = json.loads(res_stats.text)
+
+                    # 解读gz
+                    if 'data' not in stats:
+                        raise Exception('There is no data in stats')
+
+                    gzip_input = BytesIO(b64decode(stats['data'][3:]))
+                    gzip_string = GzipFile(fileobj=gzip_input).read().decode("utf-8")
+                    stats['data'] = json.loads(gzip_string)
+
+                    stats = stats['data']
                     # 拼接数据
 
                     stats = deepDictToJSON(stats)
-
+                    
                     measurement = PLAYERNAME
 
                     data = {
@@ -66,6 +85,7 @@ if __name__ == '__main__':
                     write_api = client.write_api(write_options=SYNCHRONOUS)
                     write_api.write(bucket, org, data)
                     print(PLAYERNAME, shard, memoryPath, ' success')
-                except:
+                except Exception as e:
                     print(PLAYERNAME, shard, memoryPath, ' failed')
-                    continue
+                    print('Error:', e)
+                    traceback.print_exc()
