@@ -32,7 +32,14 @@ ERR_WRONG_KEY_OR_VALUE = json.dumps({"message": "Wrong JSON Keys or values"}), 4
 ERR_INVALID_LOGIN = json.dumps({"message": "Invalid login state！"}), 403
 
 
-def isValidStrDict(Dict, keys: list):
+def isValidStrDict(Dict: dict, keys: list):
+    """
+    检查Dict中是否存在所有的keys键且其值类型为str
+
+    :param Dict: 要检查的字典
+    :param keys: 要检查的键名列表
+    :return:
+    """
     if not isinstance(Dict, dict):
         return False
     for k in keys:
@@ -56,9 +63,7 @@ def isValidLoginTOKEN(DB_USER, username, loginTOKEN):
             return False
 
 
-# from flask import request
 # 用flask做一个简单的http服务器
-# 输入：username,password,
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
 
@@ -72,11 +77,7 @@ def login():
         # print(type(request.json))
         login = request.json  # dict
 
-        if not isinstance(login, dict) \
-                or 'username' not in login.keys() \
-                or 'password' not in login.keys() \
-                or not isinstance(login['username'], str) \
-                or not isinstance(login['password'], str):
+        if not isValidStrDict(login, ['username', 'password']):
             return ERR_WRONG_KEY_OR_VALUE
 
         else:
@@ -116,11 +117,7 @@ def register():
     if request.method == 'POST':
         signup = request.json  # dict
         print(signup)
-        if not isinstance(signup, dict) \
-                or 'username' not in signup.keys() \
-                or 'password' not in signup.keys() \
-                or not isinstance(signup['username'], str) \
-                or not isinstance(signup['password'], str):
+        if not isValidStrDict(signup, ["username", "password"]):
             return ERR_WRONG_KEY_OR_VALUE
 
         else:
@@ -156,17 +153,7 @@ def creat_agent():
         print(type(request.json))
         agent = request.json
 
-        if not isinstance(agent, dict) \
-                or 'username' not in agent.keys() \
-                or 'loginTOKEN' not in agent.keys() \
-                or 'token' not in agent.keys() \
-                or 'path' not in agent.keys() \
-                or 'shard' not in agent.keys() \
-                or not isinstance(agent['username'], str) \
-                or not isinstance(agent['loginTOKEN'], str) \
-                or not isinstance(agent['token'], str) \
-                or not isinstance(agent['path'], str) \
-                or not isinstance(agent['shard'], str):
+        if not isValidStrDict(agent, ['username', 'loginToken', 'token', 'path', 'shard']):
             return ERR_WRONG_KEY_OR_VALUE
 
         # 验证当前登录是否有效
