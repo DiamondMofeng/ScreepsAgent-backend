@@ -151,26 +151,52 @@ def creat_agent():
     if request.method == 'POST':
         print(request.json)
         print(type(request.json))
-        agent = request.json
+        agent: dict = request.json
 
-        if not isValidStrDict(agent, ['username', 'loginToken', 'token', 'path', 'shard']):
+        if not isValidStrDict(agent, ['username', 'loginTOKEN', 'token', 'path', 'shard']):
             return ERR_WRONG_KEY_OR_VALUE
 
         # 验证当前登录是否有效
-        with TinyDB(DB_USER) as db:
-            query = db.search(Query().fragment(
-                {
-                    'username': agent["username"],
-                    "loginTOKEN": agent["loginTOKEN"]
-                }
-            ))
-            if len(query) == 0:
-                return json.dumps({"message": "验证登录失败！"}), 403
+        if not isValidLoginTOKEN(DB_USER, agent["username"], agent["loginTOKEN"]):
+            return ERR_INVALID_LOGIN
 
+        # 考虑私服的情况
+        isPrivate = False
+        if "private_enable" in agent.keys():
+            if not isValidStrDict(agent, ["private_url",
+                                          "private_username",
+                                          "private_password"
+                                          ]):  # TODO 确定键名 暂定为private_url、private_username、private_password # url最后不要加斜杠/
+                return ERR_WRONG_KEY_OR_VALUE
+            isPrivate = True
+
+        # 获取数据
+        r = None
+        if isPrivate:
+            tempTokenReq = requests.post(f'''{agent["private_url"]}/api/auth/signin''',
+                                         json={
+                                             "email": agent["private_username"],
+                                             "password": agent["private_password"]
+                                         })
+            print(tempTokenReq.url)
+            print(tempTokenReq.text)
+            if tempTokenReq.status_code != 200:
+                return json.dumps({"message": "私服登录信息有误"}), 403
+            tempToken = tempTokenReq.json()["token"]
+            r = requests.get(f'''{agent["private_url"]}/api/user/memory''',
+                             {
+                                 "shard": agent['shard'],
+                                 "path": agent['path']
+                             },
+                             headers={
+                                 "x-token": tempToken,
+                                 "x-username": "foobar"
+                             })
+            pass
+        else:
+            r = requests.get(
+                url=f'''https://screeps.com/api/user/memory?_token={agent['token']}&shard={agent['shard']}&path={agent['path']}''')
         # 验证数据是否有效
-
-        r = requests.get(
-            url=f'''https://screeps.com/api/user/memory?_token={agent['token']}&shard={agent['shard']}&path={agent['path']}''')
         if r.status_code != 200:
             return json.dumps({"message": "invalid args"}), 403
 
@@ -189,6 +215,13 @@ def creat_agent():
                 "path": agent["path"],
                 "shard": agent["shard"],
             }
+            if isPrivate:
+                newAgent.update({
+                    "private_enable": agent["private_enable"],
+                    "private_url": agent["private_url"],
+                    "private_username": agent["private_username"],
+                    "private_password": agent["private_password"],
+                })
             db.insert(newAgent)
             return json.dumps(newAgent), 201
 
