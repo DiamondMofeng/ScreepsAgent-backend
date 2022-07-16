@@ -116,7 +116,7 @@ def login():
 def register():
     if request.method == 'POST':
         signup = request.json  # dict
-        print(signup)
+        # print(signup)
         if not isValidStrDict(signup, ["username", "password"]):
             return ERR_WRONG_KEY_OR_VALUE
 
@@ -149,8 +149,8 @@ def register():
 @app.route("/api/agents", methods=['POST'])
 def creat_agent():
     if request.method == 'POST':
-        print(request.json)
-        print(type(request.json))
+        # print(request.json)
+        # print(type(request.json))
         agent: dict = request.json
 
         if not isValidStrDict(agent, ['username', 'loginTOKEN', 'token', 'path', 'shard']):
@@ -162,7 +162,7 @@ def creat_agent():
 
         # 考虑私服的情况
         isPrivate = False
-        if "private_enable" in agent.keys():
+        if "private_enable" in agent.keys() and agent["private_enable"] is True:
             if not isValidStrDict(agent, ["private_url",
                                           "private_username",
                                           "private_password"
@@ -173,13 +173,14 @@ def creat_agent():
         # 获取数据
         r = None
         if isPrivate:
+            # print(agent)
             tempTokenReq = requests.post(f'''{agent["private_url"]}/api/auth/signin''',
                                          json={
                                              "email": agent["private_username"],
                                              "password": agent["private_password"]
                                          })
-            print(tempTokenReq.url)
-            print(tempTokenReq.text)
+            # print(tempTokenReq.url)
+            # print(tempTokenReq.text)
             if tempTokenReq.status_code != 200:
                 return json.dumps({"message": "私服登录信息有误"}), 403
             tempToken = tempTokenReq.json()["token"]
@@ -197,6 +198,7 @@ def creat_agent():
             r = requests.get(
                 url=f'''https://screeps.com/api/user/memory?_token={agent['token']}&shard={agent['shard']}&path={agent['path']}''')
         # 验证数据是否有效
+
         if r.status_code != 200:
             return json.dumps({"message": "invalid args"}), 403
 
@@ -215,6 +217,9 @@ def creat_agent():
                 "path": agent["path"],
                 "shard": agent["shard"],
             }
+            newAgent.update({
+                'id': db.all()[- 1]['id'] + 1
+            })
             if isPrivate:
                 newAgent.update({
                     "private_enable": agent["private_enable"],
@@ -248,44 +253,43 @@ def get_agents_by_username():
         # 查询对应agent
         with TinyDB(DB_AGENT) as db:
             query = db.search(Query().fragment({'username': username}))
-            print(query)
+            # print(query)
             return json.dumps(query), 200
 
     return ERR_UNKNOWN_ENDPOINT
 
 
-# 以agentID删除agent
-@app.route("/api/deleteAgent", methods=['POST'])
-def delete_agent_by_agentID():
-    if request.method == "POST":
+@app.route("/api/agents/<int:_id>", methods=['DELETE'])
+def delete_agent_by_agentID(_id):
+    if request.method != 'DELETE':
+        return
+    # 从header获得验证信息，并验证登录
+    header_dict = dict(request.headers)
+    if not isValidStrDict(header_dict, ['X-Token', 'X-Username']):
+        return ERR_INVALID_LOGIN
+    if not isValidLoginTOKEN(DB_USER, header_dict['X-Username'], header_dict['X-Token']):
+        print(header_dict['X-Username'], header_dict['X-Token'])
+        print(2)
+        return ERR_INVALID_LOGIN
 
-        req_dict = request.json
-        print(type(req_dict), req_dict)
-        if not isValidStrDict(req_dict, ['username', 'loginTOKEN', 'token', 'shard', 'path']):
-            return ERR_WRONG_KEY_OR_VALUE
+    # 验证要删除数据的所有权
+    with TinyDB(DB_AGENT) as db:
+        to_delete = db.search(Query().fragment({'id': _id}))
 
-        username = req_dict["username"]
-        loginTOKEN = req_dict["loginTOKEN"]
-        token = req_dict["token"]
-        shard = req_dict["shard"]
-        path = req_dict["path"]
+        if len(to_delete) > 1:
+            return ERR_UNKNOWN_ENDPOINT
+        elif len(to_delete) == 0:
+            return json.dumps({'message': 'failed to find, maybe have been deleted'}), 200
 
-        # 验证登录有效性
-        if not isValidLoginTOKEN(DB_USER, username, loginTOKEN):
+        to_delete = to_delete[0]
+        if to_delete['username'] != header_dict['X-Username']:
             return ERR_INVALID_LOGIN
 
-        with TinyDB(DB_AGENT) as db:
-            query = db.search(Query().fragment({'username': username, 'token': token, 'path': path, 'shard': shard}))
-            if len(query) == 0:
-                return json.dumps({"message": "agentID not found"}), 404
-            elif len(query) >= 1:
-                db.remove(Query().fragment({'username': username, 'token': token, 'path': path, 'shard': shard}))
-                return json.dumps({"message": "delete success"}), 200
-            else:
-                print('unknown error')
-                return ERR_UNKNOWN_ENDPOINT
+        # 验证完毕，进行删除
+        db.remove(Query().fragment({"id": _id}))
+        return json.dumps({"message": "successfully deleted"}), 200
 
-    return ERR_UNKNOWN_ENDPOINT
+    # return ERR_UNKNOWN_ENDPOINT
 
 
 if __name__ == '__main__':
