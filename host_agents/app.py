@@ -14,6 +14,9 @@ from tinydb import TinyDB, Query
 from CONSTS import DB_USER, DB_AGENT, MD5_KEY_PASSWORD, MD5_KEY_LOGINTOKEN
 
 
+# TODO 优化结构
+# TODO 加入异步，防止卡死
+
 def md5(string):
     _md5 = hashlib.md5(bytes(MD5_KEY_PASSWORD, encoding='utf-8'))
     _md5.update(string.encode(encoding='utf-8'))
@@ -166,7 +169,7 @@ def creat_agent():
             if not isValidStrDict(agent, ["private_url",
                                           "private_username",
                                           "private_password"
-                                          ]):  # TODO 确定键名 暂定为private_url、private_username、private_password # url最后不要加斜杠/
+                                          ]):  # 键名 暂定为private_enable、private_url、private_username、private_password # url最后不要加斜杠/
                 return ERR_WRONG_KEY_OR_VALUE
             isPrivate = True
 
@@ -178,7 +181,7 @@ def creat_agent():
                                          json={
                                              "email": agent["private_username"],
                                              "password": agent["private_password"]
-                                         })
+                                         }, timeout=10)
             # print(tempTokenReq.url)
             # print(tempTokenReq.text)
             if tempTokenReq.status_code != 200:
@@ -192,11 +195,12 @@ def creat_agent():
                              headers={
                                  "x-token": tempToken,
                                  "x-username": "foobar"
-                             })
+                             }, timeout=10)
             pass
         else:
             r = requests.get(
-                url=f'''https://screeps.com/api/user/memory?_token={agent['token']}&shard={agent['shard']}&path={agent['path']}''')
+                url=f'''https://screeps.com/api/user/memory?_token={agent['token']}&shard={agent['shard']}&path={agent['path']}''',
+                timeout=10)
         # 验证数据是否有效
 
         if r.status_code != 200:
