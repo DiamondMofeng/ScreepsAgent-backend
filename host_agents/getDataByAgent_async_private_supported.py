@@ -10,13 +10,12 @@ import requests
 
 import certifi
 
-from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client import InfluxDBClient
 from influxdb_client.client.write_api import SYNCHRONOUS
 
-from tinydb import Query, TinyDB
+from tinydb import TinyDB
 
-from CONSTS import DB_AGENT, \
-    INFLUXDB_URL, INFLUXDB_PUBLIC_ORG, INFLUXDB_PUBLIC_ORG_ID, INFLUXDB_PUBLIC_ORG_ADMIN_TOKEN
+from CONSTS import DB_AGENT, INFLUXDB_URL, INFLUXDB_PUBLIC_ORG, INFLUXDB_PUBLIC_ORG_ADMIN_TOKEN
 
 import asyncio
 
@@ -40,6 +39,7 @@ def intInDictToFloat(Dict: dict):
 
 
 async def getDataByAgent(agent, influxdbClient):
+    global PLAYERNAME, shard, memoryPath
     try:
         screepsTOKEN = agent["token"]
         memoryPath = agent["path"]
@@ -107,9 +107,10 @@ async def getDataByAgent(agent, influxdbClient):
 
         write_api = influxdbClient.write_api(write_options=SYNCHRONOUS)
         write_api.write(bucket, org, data)
-        print(PLAYERNAME, shard, memoryPath, ' success')
+
+        print('success', f"{privateUrl if private_enable else 'screeps.com'} : {PLAYERNAME} {shard} {memoryPath} ")
     except Exception as e:
-        print(PLAYERNAME, shard, memoryPath, ' failed')
+        print('failed', f"{privateUrl if private_enable else 'screeps.com'} : {PLAYERNAME} {shard} {memoryPath} ")
         print('Error:', e)
         traceback.print_exc()
 
