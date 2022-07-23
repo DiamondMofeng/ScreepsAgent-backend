@@ -6,12 +6,13 @@ import requests
 
 from agent_influxdb import influxdb
 from agent_grafana import grafana
-# from save_agent import saveAgent
 from flask import Flask, request
 from flask_cors import *
 from tinydb import TinyDB, Query
 
 from CONSTS import DB_USER, DB_AGENT, MD5_KEY_PASSWORD, MD5_KEY_LOGINTOKEN
+
+from toys.CombatPowerDetector import Detector
 
 
 # TODO 优化结构
@@ -273,7 +274,6 @@ def delete_agent_by_agentID(_id):
         return ERR_INVALID_LOGIN
     if not isValidLoginTOKEN(DB_USER, header_dict['X-Username'], header_dict['X-Token']):
         print(header_dict['X-Username'], header_dict['X-Token'])
-        print(2)
         return ERR_INVALID_LOGIN
 
     # 验证要删除数据的所有权
@@ -294,6 +294,26 @@ def delete_agent_by_agentID(_id):
         return json.dumps({"message": "successfully deleted"}), 200
 
     # return ERR_UNKNOWN_ENDPOINT
+
+
+@app.route("/api/combat-power", methods=['GET'])
+def get_combat_power():
+    if request.method != 'GET':
+        return ERR_UNKNOWN_ENDPOINT
+
+    req_dict = request.values.to_dict()
+    if not isValidStrDict(req_dict, ['playername']):
+        return ERR_WRONG_KEY_OR_VALUE
+
+    res = {}
+
+    roomObjsDict = Detector.getPlayerRoomObjectsDict(req_dict['playername'])
+    playerInfo = Detector.fromRoomObjDict(roomObjsDict)
+
+    res["resources"] = playerInfo.getResources()
+    res["walls"] = playerInfo.getWallThickness(unit='')
+
+    return json.dumps(res), 200
 
 
 if __name__ == '__main__':

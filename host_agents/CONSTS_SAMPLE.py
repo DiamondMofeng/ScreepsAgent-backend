@@ -10,10 +10,13 @@ INFLUXDB_PUBLIC_ORG_ID = '4basdfsdnf65b853'
 INFLUXDB_PUBLIC_ORG_ADMIN_TOKEN = '6yy19Rvuhrnv6Bu6yy19Rvuhrn1sJjV-bofyy19Rvuhrnv6Bu6yy19f2g5NIF6Dg=='
 
 # Grafana
+GRAFANA_URL = 'grafana.me.com'
 
 GRAFANA_ADMIN_USERNAME = 'admin'
 GRAFANA_ADMIN_PASSWORD = 'admin'
-GRAFANA_URL = 'grafana.me.com'
+
+# screeps Token
+SCREEPS_TOKEN = 'ASD12347-701b-4456-12301-ffgggc445679'
 
 # md5 Salts
 MD5_KEY_PASSWORD = 'thisIsASalt'
