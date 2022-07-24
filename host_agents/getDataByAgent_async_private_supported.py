@@ -6,9 +6,11 @@ from base64 import b64decode
 from gzip import GzipFile
 from io import BytesIO
 
-import requests
+# import requests
+import aiohttp
 
-import certifi
+import certifi  # have to import certifi and ssl to solve server side problem
+import ssl
 
 from influxdb_client import InfluxDBClient
 from influxdb_client.client.write_api import SYNCHRONOUS
@@ -21,7 +23,7 @@ import asyncio
 
 DB_AGENT_ABSOLUTE_PATH = sys.path[0] + '/' + DB_AGENT
 
-global PLAYERNAME, shard, memoryPath
+ssl_context = ssl.create_default_context(cafile=certifi.where())
 
 
 def deepDictToJSON(Dict: dict):
@@ -38,49 +40,62 @@ def intInDictToFloat(Dict: dict):
     return Dict
 
 
-async def getDataByAgent(agent, influxdbClient):
-    global PLAYERNAME, shard, memoryPath
+async def fetchFromPrivate(agent, session: aiohttp.ClientSession):
+    # 先获取临时token，再获取memory
+    async with session.post(f'''{agent['private_url']}/api/auth/signin''',
+                            data={'email': agent['private_username'],
+                                  'password': agent['private_password']
+                                  },
+                            ssl=ssl_context) as res:
+        if res.status == 401:
+            raise Exception('401 not authorized')
+        token = json.loads(await res.text())['token']
+    async with session.post(f'''{agent['private_url']}/api/auth/signin''',
+                            data={
+                                "shard": agent['shard'],
+                                "path": agent['path']
+                            },
+                            header={
+                                "X-Token": token,
+                                "X-Username": "foobar"
+                            },
+                            ssl=ssl_context) as res:
+        return {
+            "status_code": res.status,
+            "text": await res.text()
+        }
+
+
+async def fetchFromOfficial(agent, session):
+    async with session.get(
+            f'https://screeps.com/api/user/memory?_token={agent["token"]}&shard={agent["shard"]}&path={agent["path"]}',
+            ssl=ssl_context) as response:
+        return {
+            "status_code": response.status,
+            "text": await response.text()
+        }
+
+
+async def getDataByAgent(agent, influxdbClient, aiohttpSession):
     try:
-        screepsTOKEN = agent["token"]
+        # screepsTOKEN = agent["token"]
         memoryPath = agent["path"]
         shard = agent["shard"]
         PLAYERNAME = agent["username"]
 
         # res_stats = None
-        private_enable = False
-        if 'private_enable' in agent and agent['private_enable'] is True:
-            private_enable = True
-            # 私服
-            privateUrl = agent['private_url']
-            # 获取临时token
-            res_signin = requests.post(f'{privateUrl}/api/auth/signin',
-                                       json={
-                                           'email': agent['private_username'],
-                                           'password': agent['private_password']
-                                       },
-                                       timeout=10)
-            if res_signin.status_code == 401:
-                raise Exception('401 not authorized')
+        private_enable = True if ('private_enable' in agent and agent['private_enable']) else False
 
-            res_stats = requests.get(f'''{agent['private_url']}/api/user/memory''',
-                                     {
-                                         "shard": agent['shard'],
-                                         "path": agent['path']
-                                     },
-                                     headers={
-                                         "X-Token": json.loads(res_signin.text)['token'],
-                                         "X-Username": "foobar"
-                                     },
-                                     timeout=10)
+        if private_enable is True:
+            res_stats = await fetchFromPrivate(agent, aiohttpSession)
+
         else:
-            # 官服
-            res_stats = requests.get(
-                f'https://screeps.com/api/user/memory?_token={screepsTOKEN}&shard={shard}&path={memoryPath}',
-                timeout=10)
-        if res_stats.status_code == 401:
+            res_stats = await fetchFromOfficial(agent, aiohttpSession)
+
+        if res_stats["status_code"] == 401:
             raise Exception('401 not authorized')
 
-        stats = json.loads(res_stats.text)
+        stats = json.loads(res_stats["text"])
 
         # 解读gz
         if 'data' not in stats:
@@ -115,11 +130,15 @@ async def getDataByAgent(agent, influxdbClient):
         write_api = influxdbClient.write_api(write_options=SYNCHRONOUS)
         write_api.write(bucket, org, data)
 
-        print('success', f"{privateUrl if private_enable else 'screeps.com'} : {PLAYERNAME} {shard} {memoryPath} ")
+        print('success',
+              f"""{'screeps.com' if not private_enable else agent['private_url']} : {agent["username"]} {agent["shard"]} {agent["path"]} """)
     except Exception as e:
-        print('failed', f"{privateUrl if private_enable else 'screeps.com'} : {PLAYERNAME} {shard} {memoryPath} ")
+        print('failed',
+              f"""{'screeps.com' if ('private_enable' not in agent or not agent['private_enable']) else agent['private_url']} : {agent["username"]} {agent["shard"]} {agent["path"]} """)
         print('Error:', e)
         traceback.print_exc()
+    finally:
+        pass
 
 
 if __name__ == '__main__':
@@ -134,7 +153,17 @@ if __name__ == '__main__':
 
         with TinyDB(DB_AGENT_ABSOLUTE_PATH) as db:
             print('TinyDB connected')
-            tasks = [getDataByAgent(agent, client) for agent in db]
-            if len(tasks) > 0:
-                loop = asyncio.get_event_loop()
-                loop.run_until_complete(asyncio.wait(tasks))
+
+
+            async def asyncFetch():
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(10)) as session:
+                    for agent in db:
+                        await getDataByAgent(agent, client, session)
+                    # tasks = [getDataByAgent(agent, client, session) for agent in db]
+                    # if len(tasks) > 0:
+                    #     loop = asyncio.get_event_loop()
+                    #     loop.run_until_complete(asyncio.wait(tasks))
+
+
+            loop2 = asyncio.get_event_loop()
+            loop2.run_until_complete(asyncFetch())
