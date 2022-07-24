@@ -53,18 +53,25 @@ async def getDataByAgent(agent, influxdbClient):
             # 私服
             privateUrl = agent['private_url']
             # 获取临时token
-            res_signin = requests.post(f'{privateUrl}/api/auth/signin', json={'email': agent['private_username'],
-                                                                              'password': agent['private_password']})
+            res_signin = requests.post(f'{privateUrl}/api/auth/signin',
+                                       json={
+                                           'email': agent['private_username'],
+                                           'password': agent['private_password']
+                                       },
+                                       timeout=10)
             if res_signin.status_code == 401:
                 raise Exception('401 not authorized')
 
-            res_stats = requests.get(f'''{agent['private_url']}/api/user/memory''', {
-                "shard": agent['shard'],
-                "path": agent['path']
-            }, headers={
-                "X-Token": json.loads(res_signin.text)['token'],
-                "X-Username": "foobar"
-            })
+            res_stats = requests.get(f'''{agent['private_url']}/api/user/memory''',
+                                     {
+                                         "shard": agent['shard'],
+                                         "path": agent['path']
+                                     },
+                                     headers={
+                                         "X-Token": json.loads(res_signin.text)['token'],
+                                         "X-Username": "foobar"
+                                     },
+                                     timeout=10)
         else:
             # 官服
             res_stats = requests.get(
