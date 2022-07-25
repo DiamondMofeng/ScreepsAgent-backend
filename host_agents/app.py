@@ -1,7 +1,9 @@
+import asyncio
 import json
 import hashlib
 
 # import screepsapi
+from common import screeps_api_aiohttp, Helper
 import requests
 
 from agent_influxdb import influxdb
@@ -307,11 +309,16 @@ def get_combat_power():
 
     res = {}
 
-    roomObjsDict = Detector.getPlayerRoomObjectsDict(req_dict['playername'])
-    playerInfo = Detector.fromRoomObjDict(roomObjsDict)
+    # roomObjsDict = Detector.getPlayerRoomObjectsDict(req_dict['playername'])
+    async def tempAsync():
+        async with screeps_api_aiohttp.API() as api:
+            roomObjsDict = await api.get_player_room_objects_dict(req_dict['playername'])
+            playerInfo = Helper.Helper.fromRoomObjDict(roomObjsDict)
 
-    res["resources"] = playerInfo.getResources()
-    res["walls"] = playerInfo.getWallThickness(unit='')
+            res["resources"] = playerInfo.getResources()
+            res["walls"] = playerInfo.getWallThickness(unit='')
+
+    asyncio.run(tempAsync())
 
     return json.dumps(res), 200
 
