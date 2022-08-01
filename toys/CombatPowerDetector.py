@@ -10,7 +10,6 @@ socket = websocketsClient.Client()
 
 
 class Detector:
-
     # def __init__(self, token):
     #     self.token = token
 
@@ -69,16 +68,17 @@ class Detector:
         # 获取玩家id
         playerId = api.user_find(username=playerName)['user']['_id']
         # 获取玩家所有房间
-        roomsRep = api.user_rooms(user_id=playerId)
+        roomsRep = api.user_rooms(playerId)
 
         roomsDict = roomsRep['shards']  # 格式:{shardName:[roomNameList]}
         return roomsDict
 
     @staticmethod
-    def getPlayerRoomObjectsDict(playerName):
+    def getPlayerRoomObjectsDict(playerName, logging=False):
         """
 
         :param playerName: 玩家名
+        :param logging:
         :return:{
                 shard:  {
                         roomName:   {
@@ -93,7 +93,7 @@ class Detector:
         """
         roomsDict = Detector.getPlayerRoomDict(playerName)
         ws = websocketsClient.Client(token=token, subscribeOnce=True, running_until_subscribe_is_empty=True,
-                                     logging=False)
+                                     logging=logging)
         data = {}
 
         for shard in roomsDict:
@@ -188,9 +188,11 @@ if __name__ == '__main__':
     api = screepsapi.API(token=token)
     # 要获取战斗力的玩家名(大小写均可)
     playerNameList = ['Mofeng']
+    import time
 
+    a = time.time()
     for playerName in playerNameList:
-        roomObjDict = Detector.getPlayerRoomObjectsDict(playerName)
+        roomObjDict = Detector.getPlayerRoomObjectsDict(playerName, True)
         # print(roomObjDict)
         print(Detector.fromRoomObjDict(roomObjDict).getWallThickness(unit=''))
         print(Detector.fromRoomObjDict(roomObjDict).getResources())
@@ -199,3 +201,5 @@ if __name__ == '__main__':
         # print(Detector.getPlayerResources(playerName))
         # print(f"{playerName}的平均墙厚度")
         # print(Detector.getPlayerWallThickness(playerName, 'M'))
+    b = time.time() - a
+    print("用时：", b)

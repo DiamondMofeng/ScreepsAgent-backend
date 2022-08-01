@@ -16,6 +16,12 @@ from CONSTS import DB_USER, DB_AGENT, MD5_KEY_PASSWORD, MD5_KEY_LOGINTOKEN
 
 from toys.CombatPowerDetector import Detector
 
+# my server has some issue so i have to pass this ssl_context
+import certifi
+import ssl
+
+ssl_context = ssl.create_default_context(cafile=certifi.where())
+
 
 # TODO 优化结构
 # TODO 加入异步，防止卡死
@@ -311,7 +317,7 @@ def get_combat_power():
 
     # roomObjsDict = Detector.getPlayerRoomObjectsDict(req_dict['playername'])
     async def tempAsync():
-        async with screeps_api_aiohttp.API() as api:
+        async with screeps_api_aiohttp.API(ssl=ssl_context) as api:
             roomObjsDict = await api.get_player_room_objects_dict(req_dict['playername'])
             playerInfo = Helper.Helper.fromRoomObjDict(roomObjsDict)
 

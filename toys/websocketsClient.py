@@ -354,7 +354,7 @@ class Client:
 
     def start(self):
         async def run():
-            async with websockets.connect(self.url) as ws:
+            async with websockets.connect(self.url,ssl=True) as ws:
 
                 await self.__skip_connection_details(ws,
                                                      CONNECTION_DETAILS_LENGTH=4)  # "o" "time" "protocol" "packages"

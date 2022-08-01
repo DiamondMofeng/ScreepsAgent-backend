@@ -8,11 +8,13 @@ DEFAULT_SHARD = 'shard3'
 OFFICIAL_URL = 'https://screeps.com/api'
 
 
+
 class API:
     def __init__(self,
                  token=None,
                  url=None,
-                 timeout: int or float = None
+                 timeout: int or float = None,
+                 ssl=None,
                  ):
 
         self.token = token
@@ -23,6 +25,8 @@ class API:
         _timeout = aiohttp.ClientTimeout(timeout)
 
         self.url = OFFICIAL_URL if url is None else url
+
+        self.ssl = ssl
 
         self.session = aiohttp.ClientSession(headers=headers, timeout=_timeout)
 
@@ -42,7 +46,7 @@ class API:
     # ===================basic methods
 
     async def get(self, url, **kwargs):
-        async with self.session.get(self.url + url, params=kwargs) as res:
+        async with self.session.get(self.url + url, params=kwargs, ssl=self.ssl) as res:
             return await res.json()
 
     # ====================/game/
@@ -108,16 +112,19 @@ class API:
         """
         {
             shard1:  {
-                        room1:room1_objs,
-                        room2:room2_objs
+                        room1:[room1_objs],
+                        room2:[{obj1},{obj2}]
                     },
             shard2: {...}
         }
         """
+        # below can be used in python 3.11, neither previous
+
         # res = {shard: {room: await self.room_objects(room=room, shard=shard) for room in shard_rooms} for
         #        shard, shard_rooms
         #        in
         #        user_rooms.items()}
+
         res = {
             shard: dict(zip(shard_rooms, [res['objects'] for res in (await asyncio.gather(
                 *[self.room_objects(room=room, shard=shard)
