@@ -9,7 +9,7 @@ CORS(app, supports_credentials=True)
 # routers
 
 # app.register_blueprint(router_hosted_agent, url_prefix='/api/agents')
-app.register_blueprint(router_hosted_agent)
+app.register_blueprint(router_hosted_agent) # api/agents    user    login
 
 if __name__ == '__main__':
     print(app.url_map)
