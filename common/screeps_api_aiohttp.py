@@ -67,7 +67,7 @@ class API:
     async def world_size(self, shard):
         return await self.get('/game/world-size', shard=shard)
 
-    async def map_stats(self, rooms: list[str], shard, stat_name='claim0'):
+    async def map_stats(self, rooms, shard, stat_name='claim0'):
         """ ** REQUIRE TOKEN
 
         :param rooms: a list of room names

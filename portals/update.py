@@ -4,6 +4,7 @@ import math
 import os
 import re
 import ssl
+import sys
 import time
 
 import certifi
@@ -39,7 +40,7 @@ rooms_len_cur = -1
 shards = ['shard0', 'shard1', 'shard2', 'shard3']
 shards.reverse()
 
-folder_path = config_update.folder_path
+folder_path = sys.path[0] + '/' + config_update.folder_path
 min_update_interval = config_update.min_update_interval
 timeout_sec = config_update.timeout_sec
 
