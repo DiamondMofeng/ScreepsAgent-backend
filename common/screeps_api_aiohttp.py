@@ -8,20 +8,23 @@ DEFAULT_SHARD = 'shard3'
 OFFICIAL_URL = 'https://screeps.com/api'
 
 
-
 class API:
     def __init__(self,
                  token=None,
                  url=None,
                  timeout: int or float = None,
                  ssl=None,
+                 headers=None,
+
                  ):
 
         self.token = token
 
-        headers = {} if token is None else {'X-Token': token, 'X-Username': token}
+        headers = headers or {}
+        if token is not None:
+            headers.update({'X-Token': token, 'X-Username': token})
 
-        timeout = timeout or 10.0
+        timeout = timeout or 60 * 5  # 5 minutes
         _timeout = aiohttp.ClientTimeout(timeout)
 
         self.url = OFFICIAL_URL if url is None else url
@@ -47,9 +50,38 @@ class API:
 
     async def get(self, url, **kwargs):
         async with self.session.get(self.url + url, params=kwargs, ssl=self.ssl) as res:
+            # print(await res.text())
+            try:
+                return await res.json()
+            except aiohttp.ContentTypeError:
+                print(await res.text())
+
+    async def post(self, url, **kwargs):
+        async with self.session.post(self.url + url, data=kwargs, ssl=self.ssl) as res:
+            # print(await res.text())
+            # TODO will raise Error if text type is not json
             return await res.json()
 
     # ====================/game/
+    # ====================/game/map
+    async def world_size(self, shard):
+        return await self.get('/game/world-size', shard=shard)
+
+    async def map_stats(self, rooms: list[str], shard, stat_name='claim0'):
+        """ ** REQUIRE TOKEN
+
+        :param rooms: a list of room names
+        :param shard: shard name
+        :param stat_name: stat name
+        :return:
+        """
+        #
+        return await self.post('/game/map-stats',
+                               rooms=rooms,
+                               shard=shard,
+                               stat_name=stat_name)
+
+    # ====================/game/room
 
     async def room_objects(self, room, shard):
         return await self.get('/game/room-objects',
