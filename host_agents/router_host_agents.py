@@ -1,8 +1,7 @@
 import hashlib
-import json
+# import json
 import ssl
 
-# my server has some issue so i have to pass this ssl_context
 import certifi
 # import screepsapi
 import requests
@@ -11,7 +10,12 @@ from flask import request
 from tinydb import TinyDB, Query
 
 from host_agents.CONSTS import DB_USER, DB_AGENT, MD5_KEY_PASSWORD, MD5_KEY_LOGINTOKEN
+from host_agents.agent_grafana import grafana
+from host_agents.agent_influxdb import influxdb
 
+from common.ENDPOINT_ERRORS import *
+
+# my server has some issue so i have to pass this ssl_context
 ssl_context = ssl.create_default_context(cafile=certifi.where())
 
 # blue print is defined here
@@ -28,12 +32,6 @@ def md5_token(string):
     _md5 = hashlib.md5(bytes(MD5_KEY_LOGINTOKEN, encoding='utf-8'))
     _md5.update(string.encode(encoding='utf-8'))
     return _md5.hexdigest()
-
-
-ERR_INVALID = json.dumps({"message": "Unknown user！"}), 403
-ERR_UNKNOWN_ENDPOINT = json.dumps({"message": "unknown endpoint"}), 400
-ERR_WRONG_KEY_OR_VALUE = json.dumps({"message": "Wrong JSON Keys or values"}), 403
-ERR_INVALID_LOGIN = json.dumps({"message": "Invalid login state！"}), 403
 
 
 def isValidStrDict(Dict: dict, keys: list):
@@ -67,8 +65,11 @@ def isValidLoginTOKEN(DB_USER, username, loginTOKEN):
             return False
 
 
+######################################
+
+
 # 建立Agent
-@router_hosted_agent.route("", methods=['POST'])
+@router_hosted_agent.route("/api/agents", methods=['POST'])
 def creat_agent():
     if request.method == 'POST':
         # print(request.json)
@@ -156,7 +157,7 @@ def creat_agent():
 
 
 # 以用户名查找agent
-@router_hosted_agent.route("", methods=['GET'])
+@router_hosted_agent.route("/api/agents", methods=['GET'])
 def get_agents_by_username():
     if request.method == "GET":
 
@@ -181,7 +182,7 @@ def get_agents_by_username():
     return ERR_UNKNOWN_ENDPOINT
 
 
-@router_hosted_agent.route("/<int:_id>", methods=['DELETE'])
+@router_hosted_agent.route("/api/agents/<int:_id>", methods=['DELETE'])
 def delete_agent_by_agentID(_id):
     if request.method != 'DELETE':
         return
@@ -211,3 +212,80 @@ def delete_agent_by_agentID(_id):
         return json.dumps({"message": "successfully deleted"}), 200
 
     # return ERR_UNKNOWN_ENDPOINT
+
+
+# 登录
+
+@router_hosted_agent.route("/api/login", methods=['POST'])
+def login():
+    if request.method == 'POST':
+        # print(request.json)
+        # print(type(request.json))
+        login = request.json  # dict
+
+        if not isValidStrDict(login, ['username', 'password']):
+            return ERR_WRONG_KEY_OR_VALUE
+
+        else:
+            username = login["username"]
+            password = login["password"]
+
+            with TinyDB(DB_USER) as db:
+
+                query = db.search(Query().fragment(
+                    {
+                        'username': username,
+                        "password": md5(password)
+                    }
+                ))
+
+                # print(query)
+
+                if len(query) == 1:
+                    user = query[0]
+                    return json.dumps({
+                        "message": "登陆成功！",
+                        "user": {
+                            "name": user["username"],
+                            "loginTOKEN": user["loginTOKEN"]
+                        }
+                    }), 200
+                else:
+                    return json.dumps({
+                        "message": "Unknown user！"}
+                    ), 403
+
+    return ERR_UNKNOWN_ENDPOINT
+
+
+@router_hosted_agent.route("/api/user", methods=['POST'])
+def register():
+    if request.method == 'POST':
+        signup = request.json  # dict
+        # print(signup)
+        if not isValidStrDict(signup, ["username", "password"]):
+            return ERR_WRONG_KEY_OR_VALUE
+
+        else:
+            username = signup["username"]
+            password = signup["password"]
+
+            with TinyDB(DB_USER) as db:
+                # user = Query()
+                # db.search(user["username"] == username)
+                query = db.search(Query().fragment({'username': username}))
+                if len(query) != 0:
+                    return json.dumps({"message": "This User Has Already Registered"}), 403
+                else:
+
+                    dbTOKEN = influxdb(username)
+
+                    grafana(username, password, dbTOKEN)
+
+                    db.insert({"username": username,
+                               "password": md5(password),
+                               "loginTOKEN": md5_token(password),
+                               "dbTOKEN": dbTOKEN})
+                    return json.dumps({"message": "注册成功！"}), 201
+
+    return ERR_UNKNOWN_ENDPOINT

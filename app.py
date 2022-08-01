@@ -7,7 +7,9 @@ app = Flask(__name__)
 CORS(app, supports_credentials=True)
 
 # routers
-app.register_blueprint(router_hosted_agent, url_prefix='/api/agents')
+
+# app.register_blueprint(router_hosted_agent, url_prefix='/api/agents')
+app.register_blueprint(router_hosted_agent)
 
 if __name__ == '__main__':
     print(app.url_map)
