@@ -5,7 +5,7 @@ import requests
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 
-from CONSTS import INFLUXDB_PUBLIC_ORG, INFLUXDB_PUBLIC_ORG_ID, INFLUXDB_PUBLIC_ORG_ADMIN_TOKEN, INFLUXDB_URL
+from host_agents.CONSTS import INFLUXDB_PUBLIC_ORG, INFLUXDB_PUBLIC_ORG_ID, INFLUXDB_PUBLIC_ORG_ADMIN_TOKEN, INFLUXDB_URL
 
 '''
 思路：

@@ -2,7 +2,7 @@ import json
 
 from grafana_api.grafana_face import GrafanaFace
 
-from CONSTS import GRAFANA_URL, GRAFANA_ADMIN_PASSWORD, GRAFANA_ADMIN_USERNAME, INFLUXDB_URL
+from host_agents.CONSTS import GRAFANA_URL, GRAFANA_ADMIN_PASSWORD, GRAFANA_ADMIN_USERNAME, INFLUXDB_URL
 
 
 def grafana(username: str, password: str, dbTOKEN: str):

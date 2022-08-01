@@ -11,10 +11,8 @@ Scripts
 !.gitignore
 !host_angents/
 
-influxdb_cloud.py
-influxdb_mofengfeng.py
+aborted
 main.py
 test.py
-pastebin.py
 
 SECRETS.PY
