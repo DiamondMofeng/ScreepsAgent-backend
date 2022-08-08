@@ -10,11 +10,11 @@ OFFICIAL_URL = 'https://screeps.com/api'
 
 class API:
     def __init__(self,
-                 token=None,
-                 url=None,
+                 token: str = None,
+                 url: str = None,
                  timeout: int or float = None,
                  ssl=None,
-                 headers=None,
+                 headers: dict = None,
 
                  ):
 
