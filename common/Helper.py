@@ -1,5 +1,12 @@
+import collections
+import json
+
+
 class Helper:
     class fromRoomObjDict:
+        """
+        from shard:room[]:room_obj[]
+        """
 
         def __init__(self, roomObjDict):
             self.__roomObjDict: dict = roomObjDict
@@ -47,4 +54,45 @@ class Helper:
                         result[shardName][roomName] = round(result[shardName][roomName] / 1e6, 2)
 
             # print(result)
+            return result
+
+    class fromRoomObjectsList:
+        """
+        from a list of a room's room-objects
+        """
+
+        def __init__(self, roomObjectsList):
+            self.__roomObjectsList: list = roomObjectsList
+
+        def get_static_room_info(self):
+            """
+            used for gamedata module
+
+            source_position
+            source_count
+            controller_position
+            mineral_position
+            # mineral_type # do not need
+
+            :return:
+            """
+
+            def getObjPosition(obj):
+                return [obj['x'], obj['y']]
+
+            result = {
+                'source_position': [],
+                'source_count': 0,
+                'controller_position': [],
+                'mineral_position': [],
+            }
+            for obj in self.__roomObjectsList:
+                if obj['type'] == 'controller':
+                    result['controller_position'].append(getObjPosition(obj))
+                elif obj['type'] == 'source':
+                    result['source_count'] += 1
+                    result['source_position'].append(getObjPosition(obj))
+                elif obj['type'] == 'mineral':
+                    result['mineral_position'].append(getObjPosition(obj))
+                    result['mineral_type'] = obj['mineralType']
             return result

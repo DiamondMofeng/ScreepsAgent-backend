@@ -15,4 +15,6 @@ aborted
 main.py
 test.py
 
+db/
+
 SECRETS.PY

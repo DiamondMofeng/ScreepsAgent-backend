@@ -1,4 +1,5 @@
 import asyncio
+import math
 
 import aiohttp
 
@@ -24,7 +25,7 @@ class API:
         if token is not None:
             headers.update({'X-Token': token, 'X-Username': token})
 
-        timeout = timeout or 60 * 5  # 5 minutes
+        timeout = timeout or 60 * 30  # 30 minutes
         _timeout = aiohttp.ClientTimeout(timeout)
 
         self.url = OFFICIAL_URL if url is None else url
@@ -54,15 +55,25 @@ class API:
             try:
                 return await res.json()
             except aiohttp.ContentTypeError:
-                print(await res.text())
+                # print(await res.text())
+                print('too fast, have a short sleep')
+                await asyncio.sleep(2)
+
+                return await self.get(url, **kwargs)  # TODO 尝试自动延迟
 
     async def post(self, url, **kwargs):
         async with self.session.post(self.url + url, data=kwargs, ssl=self.ssl) as res:
-            # print(await res.text())
-            # TODO will raise Error if text type is not json
-            return await res.json()
+            # will raise Error if text type is not json
+            try:
+                return await res.json()
+            except aiohttp.ContentTypeError:
+                print(await res.text())
 
     # ====================/game/
+
+    async def room_terrain(self, room, shard, encoded=1):
+        return await self.get('/game/room-terrain', room=room, shard=shard, encoded=encoded)
+
     # ====================/game/map
     async def world_size(self, shard):
         return await self.get('/game/world-size', shard=shard)
@@ -79,7 +90,7 @@ class API:
         return await self.post('/game/map-stats',
                                rooms=rooms,
                                shard=shard,
-                               stat_name=stat_name)
+                               statName=stat_name)
 
     # ====================/game/room
 
@@ -113,6 +124,24 @@ class API:
         return await self.get('/user/rooms', id=user_id, shard=shard)
 
     # =====================Combos
+
+    async def get_rooms_of_shard(self, shard):
+        """*DO NOT REQUIRE TOKEN
+        get room list of a shard
+
+        :param shard:
+        :return:
+        """
+        world_size = await self.world_size(shard)
+        width = world_size['width']
+        height = world_size['height']  # normally it is equal to width
+        return [
+            f'{WE}{x}{NS}{y}'
+            for x in range(math.floor(width / 2))
+            for y in range(math.floor(height / 2))
+            for WE in ['W', 'E']
+            for NS in ['N', 'S']
+        ]
 
     async def get_player_room_dict(self, username: str, shards: list = None) -> dict:
         """*DO NOT REQUIRE TOKEN
@@ -177,9 +206,11 @@ class API:
 if __name__ == '__main__':
     # for test
     async def main():
-        async with API() as helper:
-            mydict = await helper.get_player_room_objects_dict('Mofeng')
-            print(mydict)
+        async with API() as api:
+            # mydict = await helper.get_player_room_objects_dict('Mofeng')
+            t1 = await api.get_rooms_of_shard('shard0')
+            print(t1)
+            print(len(t1))
 
 
     loop = asyncio.get_event_loop()
