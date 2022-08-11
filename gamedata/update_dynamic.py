@@ -34,9 +34,14 @@ async def update_room_objects():
                     room_objects: list = (await api.room_objects(room, shard))['objects']
                     room_objects_json = json.dumps(room_objects)
 
-                    def try_find(_room_objects, structure_type):
+                    def translation_single_quotes(s: str):
+                        return s.replace("'", r"\'")
 
-                        live_strut = [obj for obj in _room_objects if obj['type'] == structure_type]
+                    room_objects_json = translation_single_quotes(room_objects_json)
+
+                    def try_find(_room_objects, _structure_type):
+
+                        live_strut = [obj for obj in _room_objects if obj['type'] == _structure_type]
                         if len(live_strut) > 0:
                             return live_strut[0]
                         ruin_strut = [
@@ -44,7 +49,7 @@ async def update_room_objects():
                             if
                             obj['type'] == 'ruin'
                             and
-                            obj['structure']['type'] == structure_type
+                            obj['structure']['type'] == _structure_type
                         ]
                         if len(ruin_strut) > 0:
                             return ruin_strut[0]
