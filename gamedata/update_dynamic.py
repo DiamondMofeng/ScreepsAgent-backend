@@ -29,61 +29,74 @@ async def update_room_objects():
                     AND last_update_timestamp < {utils.get_js_timestamp() - config.UPDATE_INTERVAL}
                     """)
                 rooms = [row[0] for row in c.fetchall()]
-                for room in rooms:
-                    print(f'update dynamic room_objects of {shard}/{room}')
-                    room_objects: list = (await api.room_objects(room, shard))['objects']
-                    room_objects_json = json.dumps(room_objects)
 
-                    def translation_single_quotes(s: str):
-                        return s.replace("'", r"\'")
+                semaphore = asyncio.Semaphore(config.MAX_CONCURRENT)
 
-                    room_objects_json = translation_single_quotes(room_objects_json)
+                async def update_a_room(room):
+                    async with semaphore:
+                        # print(f'updating dynamic room_objects of {shard}/{room}')
+                        room_objects: list = (await api.room_objects(room, shard))['objects']
+                        room_objects_json = json.dumps(room_objects)
 
-                    def try_find(_room_objects, _structure_type):
+                        def translation_single_quotes(s: str):
+                            return s.replace("'", r"\'")
 
-                        live_strut = [obj for obj in _room_objects if obj['type'] == _structure_type]
-                        if len(live_strut) > 0:
-                            return live_strut[0]
-                        ruin_strut = [
-                            obj for obj in _room_objects
-                            if
-                            obj['type'] == 'ruin'
-                            and
-                            obj['structure']['type'] == _structure_type
-                        ]
-                        if len(ruin_strut) > 0:
-                            return ruin_strut[0]
-                        return {}
+                        room_objects_json = translation_single_quotes(room_objects_json)
 
-                    def get_used_capacity(room_object):
-                        if 'store' not in room_object:
-                            return 0
-                        # print(room_object['store'].values())
-                        return sum([amount for amount in room_object['store'].values() if type(amount) is int])
+                        def try_find(_room_objects, _structure_type):
 
-                    def get_store(room_object):
-                        if 'store' not in room_object:
-                            return '{}'
-                        return json.dumps(room_object['store'])
+                            live_strut = [obj for obj in _room_objects if obj['type'] == _structure_type]
+                            if len(live_strut) > 0:
+                                return live_strut[0]
+                            ruin_strut = [
+                                obj for obj in _room_objects
+                                if
+                                obj['type'] == 'ruin'
+                                and
+                                obj['structure']['type'] == _structure_type
+                            ]
+                            if len(ruin_strut) > 0:
+                                return ruin_strut[0]
+                            return {}
 
-                    for structure_type in ['storage', 'terminal', 'factory']:
-                        structure = try_find(room_objects, structure_type)
+                        def get_used_capacity(room_object):
+                            if 'store' not in room_object:
+                                return 0
+                            # print(room_object['store'].values())
+                            return sum([amount for amount in room_object['store'].values() if type(amount) is int])
+
+                        def get_store(room_object):
+                            if 'store' not in room_object:
+                                return '{}'
+                            return json.dumps(room_object['store'])
+
+                        update_dict = {
+                            'last_update_timestamp': utils.get_js_timestamp(),
+                            'room_objects': room_objects_json
+                        }
+
+                        for structure_type in ['storage', 'terminal', 'factory']:
+                            structure = try_find(room_objects, structure_type)
+
+                            update_dict[f'{structure_type}_used_capacity'] = get_used_capacity(structure)
+                            update_dict[f'{structure_type}_store'] = get_store(structure)
+                            # c.execute(f"""
+                            #     UPDATE room_objects
+                            #     SET {structure_type}_used_capacity = {get_used_capacity(structure)},
+                            #         {structure_type}_store = '{get_store(structure)}'
+                            #     WHERE room = '{room}' AND shard = '{shard}'
+                            #     """)
+
                         c.execute(f"""
-                            UPDATE room_objects 
-                            SET {structure_type}_used_capacity = {get_used_capacity(structure)},
-                                {structure_type}_store = '{get_store(structure)}'
+                            UPDATE room_objects
+                            SET {','.join([f"{k} = '{v}'" for k, v in update_dict.items()])}
                             WHERE room = '{room}' AND shard = '{shard}'
-                            """)
+                        """)
 
-                    c.execute(f"""
-                        UPDATE room_objects
-                        SET last_update_timestamp = {utils.get_js_timestamp()},
-                             room_objects = '{room_objects_json}'             /*--占用空间太多了*/
-                        WHERE room = '{room}' AND shard = '{shard}'
-                    """)
+                        conn.commit()
+                        print(f'updated dynamic room_objects of {shard}/{room}')
 
-                    conn.commit()
-
+                await asyncio.gather(*[update_a_room(room) for room in rooms])
     pass
 
 
