@@ -29,24 +29,26 @@ def init_table_room_objects():
         c.execute(
             f"""CREATE TABLE IF NOT EXISTS room_objects 
             (
-            PRIMARY KEY (room, shard),
-            room TEXT NOT NULL,
-            shard TEXT NOT NULL, 
-            room_objects TEXT NOT NULL DEFAULT '',       -- 
+            room    VARCHAR(255) NOT NULL,
+            shard   VARCHAR(255) NOT NULL,
+            
+            room_objects MEDIUMTEXT,       
 
-            last_update_timestamp INTEGER NOT NULL DEFAULT -1,  -- last timestamp when update room_objects from http endpoint
+            last_update_timestamp BIGINT NOT NULL DEFAULT -1,  /*  -- last timestamp when update room_objects from http endpoint
 --             last_scan_timestamp INTEGER NOT NULL DEFAULT -1,    -- last timestamp when this room is scanned by webSocket roomMap2
             --本来想先用ws扫一遍再详细获取信息，但是由于ws扫不到Ruin故取消。
 
+*/
             storage_used_capacity INTEGER NOT NULL DEFAULT -1,
-            storage_store TEXT NOT NULL DEFAULT '',
+            storage_store TEXT,
 
             terminal_used_capacity INTEGER NOT NULL DEFAULT -1,
-            terminal_store TEXT NOT NULL DEFAULT '',
+            terminal_store TEXT,
 
             factory_used_capacity INTEGER NOT NULL DEFAULT -1,
-            factory_store TEXT NOT NULL DEFAULT ''
+            factory_store TEXT,
 
+            PRIMARY KEY (room, shard)
             )"""
         )
         conn.commit()
@@ -58,22 +60,23 @@ def init_table_map_stats():
         c.execute(
             f"""CREATE TABLE IF NOT EXISTS map_stats 
             (
-            PRIMARY KEY (room, shard),
-            room TEXT NOT NULL,
-            shard TEXT NOT NULL, 
---             map_stats TEXT NOT NULL DEFAULT '',
+            room    VARCHAR(255) NOT NULL,
+            shard   VARCHAR(255) NOT NULL,
 
-            last_update_timestamp INTEGER NOT NULL DEFAULT -1,  -- last timestamp when update map_stats from http endpoint
-
-            owner TEXT NOT NULL DEFAULT '',
-            owner_id TEXT NOT NULL DEFAULT '',
+            last_update_timestamp BIGINT NOT NULL DEFAULT -1,  /* -- last timestamp when update map_stats from http endpoint */
+            
+            room_status TEXT ,  /* --normal, --out of borders, */
+            
+            owner TEXT,
+            owner_id TEXT,
             controller_level INTEGER NOT NULL DEFAULT -1,
 
-            novice_area_timestamp INTEGER NOT NULL DEFAULT -1,
-            respawn_area_timestamp INTEGER NOT NULL DEFAULT -1,
+            novice_area_timestamp BIGINT NOT NULL DEFAULT -1,
+            respawn_area_timestamp BIGINT NOT NULL DEFAULT -1,
 
-            is_power_enabled INTEGER NOT NULL DEFAULT -1
+            is_power_enabled INTEGER NOT NULL DEFAULT -1,
 
+            PRIMARY KEY (room, shard)
             )"""
         )
         conn.commit()
@@ -84,28 +87,28 @@ def init_table_room_info():
         c = conn.cursor()
         c.execute('''CREATE TABLE IF NOT EXISTS room_info
                             (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            room TEXT NOT NULL,
-                            shard TEXT NOT NULL,
-
-                            room_status TEXT NOT NULL DEFAULT '',  --normal, --out of borders, 
+                            room    VARCHAR(255) NOT NULL,
+                            shard   VARCHAR(255) NOT NULL,
+                            
+                            room_status TEXT ,  /* --normal, --out of borders, */ 
 
                             is_highway INTEGER NOT NULL DEFAULT -1,
                             is_center INTEGER NOT NULL DEFAULT -1,
 
-                            controller_position TEXT NOT NULL DEFAULT '',
+                            controller_position TEXT,
                             source_count INTEGER NOT NULL DEFAULT -1,
-                            source_position TEXT NOT NULL DEFAULT '',
-                            mineral_type TEXT NOT NULL DEFAULT '',
-                            mineral_position TEXT NOT NULL DEFAULT '',
+                            source_position TEXT,
+                            mineral_type TEXT ,
+                            mineral_position TEXT,
 
                             terrain_exit_direction_count INTEGER NOT NULL  DEFAULT -1,
-                            terrain_exit_per_direction TEXT NOT NULL DEFAULT '',          --json
+                            terrain_exit_per_direction TEXT ,        /*  --json */ 
 
                             terrain_plain_count INTEGER NOT NULL  DEFAULT -1,
                             terrain_swamp_count INTEGER NOT NULL  DEFAULT -1,
-                            terrain_wall_count INTEGER NOT NULL  DEFAULT -1
-
+                            terrain_wall_count INTEGER NOT NULL  DEFAULT -1,
+                            
+                            PRIMARY KEY (room, shard)
                             )
                             ''')
         conn.commit()
@@ -116,10 +119,12 @@ def init_table_room_terrain():
         c = conn.cursor()
         c.execute('''CREATE TABLE IF NOT EXISTS room_terrain
                                     (
-                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                    room TEXT NOT NULL,
-                                    shard TEXT NOT NULL,
-                                    terrain TEXT NOT NULL DEFAULT ''
+                                    room    VARCHAR(255) NOT NULL,
+                                    shard   VARCHAR(255) NOT NULL,
+                                          
+                                    terrain TEXT ,
+                                    
+                                    PRIMARY KEY (room, shard)
                                     )''')
         conn.commit()
 
@@ -134,29 +139,39 @@ def init():
 
 
 def init_rooms():
+    print('checking should init rooms')
+    tables = ['room_info', 'room_terrain', 'room_objects', 'map_stats']
     for shard in SHARDS:
-        with get_database() as conn:
-            c = conn.cursor()
-            # if already exists, then skip
-            c.execute(f"SELECT 1 FROM room_info WHERE shard = '{shard}'")
-            if c.fetchone():
-                continue
 
-            res_world_size = requests.get(f'https://screeps.com/api/game/world-size', params={'shard': shard})
-            world_size = res_world_size.json()
-            rooms = utils.getRoomsByWorldSize(world_size['height'], world_size['width'])
-            for room in rooms:
-                for table_name in ['room_info', 'room_terrain', 'room_objects', 'map_stats']:
-                    c.execute(f"""
-                        INSERT INTO {table_name} (room, shard) VALUES ('{room}', '{shard}') 
-                        WHERE NOT EXISTS    (  
-                                            SELECT 1 FROM {table_name} 
-                                            WHERE room = '{room}' AND shard = '{shard}'
-                                            )
-                        
-                        """
-                              )
-            conn.commit()
+        res_world_size = requests.get(f'https://screeps.com/api/game/world-size', params={'shard': shard})
+        world_size = res_world_size.json()
+        rooms = utils.getRoomsByWorldSize(world_size['height'], world_size['width'])
+
+        for table_name in tables:
+            with get_database() as conn:
+                c = conn.cursor()
+                # if already exists, then skip
+                c.execute(f"SELECT room FROM {table_name} WHERE shard = '{shard}'")
+
+                exist_rooms = [row[0] for row in c.fetchall()]
+                missing_rooms = [room for room in rooms if room not in exist_rooms]
+
+                if len(missing_rooms) == 0:
+                    continue
+
+                print(f'initializing rooms of table {shard} / {table_name}')
+
+                c.execute(
+                    f"""
+                    INSERT INTO {table_name} (room, shard)
+                    VALUES  {','.join([f"('{room}', '{shard}')" for room in missing_rooms])}
+                    """)
+
+                print(f'initialized rooms of table {shard} / {table_name}')
+
+                conn.commit()
+
+    print('check over, rooms are inited')
 
 
 def try_init():
@@ -182,7 +197,7 @@ def select_rooms_to_update_mineral_type_by_shard(shard):
     with get_database() as conn:
         c = conn.cursor()
         c.execute(
-            f"SELECT room FROM room_info WHERE shard={shard} AND mineral_type = '' AND instr(room,'0')=0 ")  # 后面是筛去过道房
+            f"SELECT room FROM room_info WHERE shard={shard} AND mineral_type IS NULL AND instr(room,'0')=0 ")  # 后面是筛去过道房
         rooms = [room_tup[0] for room_tup in c.fetchall()]
         return rooms
 
@@ -199,4 +214,7 @@ def update_mineral_type_by_map_stats_and_shard(map_stats, shard):
 
 
 if __name__ == '__main__':
+    init()
+    init_rooms()
+    # try_init()
     print(select_room_info_by_rooms(['W1N1', 'W1N2'], 'shard1'))

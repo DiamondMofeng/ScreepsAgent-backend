@@ -118,9 +118,8 @@ async def update_mineralType_and_roomStatus_by_map_stats():
                     f"""
                     SELECT room FROM room_info 
                     WHERE shard='{shard}' 
-                    AND (mineral_type = '' OR room_status = '') 
---                     AND instr(room,'0')=0 
-                    """)  # 后面是筛去过道房
+                    AND (mineral_type is NULL OR room_status is NULL) 
+                    """)
                 rooms = [room_tup[0] for room_tup in c.fetchall()]
             i = 0
             short_split_rooms = utils.split_list_by_len(rooms, 900)  # 单次请求900会被rate limit限制，然而超过900会payload too large
@@ -167,7 +166,7 @@ async def update_room_info_by_ws_roomMap():
                 SELECT room FROM room_info 
                 WHERE 
                 shard = '{shard}' 
-                AND (controller_position = '' OR source_count = '' OR source_position = '' OR mineral_position = '')
+                AND (controller_position IS NULL OR source_count = '' OR source_position IS NULL OR mineral_position IS NULL)
                 AND room_status = 'normal'
                 """)
             rooms_all = [room_tup[0] for room_tup in c.fetchall()]
@@ -233,12 +232,12 @@ async def update_room_info_by_room_objects():
                     (
                         (
                             room_status != 'normal'
-                            AND (controller_position = '' OR source_count = '' OR source_position = '' OR mineral_position = '')
+                            AND (controller_position IS NULL OR source_count = '' OR source_position IS NULL OR mineral_position IS NULL)
                         )
                             OR 
                         (
-                            is_center = 0               -- 去除中心房
-                            AND is_highway = 0          -- 去除过道房
+                            is_center = 0               
+                            AND is_highway = 0          
                             AND room_status = 'normal'
                             AND controller_position = '[]'
                         )
@@ -288,7 +287,7 @@ async def update_room_terrain():
                     f"""
                     SELECT room FROM room_terrain
                     WHERE shard='{shard}' 
-                    AND terrain = '' 
+                    AND terrain IS NULL
                     """)
                 rooms = [room_tup[0] for room_tup in c.fetchall()]
 
@@ -324,7 +323,7 @@ async def update_room_terrain_info():
         c.execute(
             f"""
             SELECT room,shard,terrain FROM room_terrain
-            WHERE terrain != '' 
+            WHERE terrain IS NOT NULL
             AND room in (SELECT room FROM room_info WHERE terrain_plain_count = -1)
             AND shard in (SELECT shard FROM room_info WHERE terrain_plain_count = -1)
             """)
