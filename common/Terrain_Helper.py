@@ -15,12 +15,8 @@ class Helper_terrain:
 
         top = self.terrain[:50]
         bottom = self.terrain[-50:]
-        print(len(top))
-        print(len(bottom))
         left = [self.terrain[i] for i in range(LEN_TERR) if i % 50 == 0]
         right = [self.terrain[i] for i in range(LEN_TERR) if i % 50 == 49]
-        print(len(left))
-        print(len(right))
         return {
             "top": top,
             "bottom": bottom,

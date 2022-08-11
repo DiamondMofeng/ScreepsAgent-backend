@@ -1,5 +1,6 @@
 import math
 import re
+import time
 
 
 def isValidStrDict(Dict: dict, keys: list):
@@ -98,8 +99,6 @@ def getRoomsInRange(room, _range: int):
 
     fromRoom = parsedRoom[0] + str(parsedRoom[1] + _range) + parsedRoom[2] + str(parsedRoom[3] + _range)
     toRoom = toWS + str(toWEInt) + toNS + str(toNSInt)
-    # print(fromRoom)
-    # print(toRoom)
     return getRoomsBetween(fromRoom, toRoom)
 
 
@@ -123,5 +122,13 @@ def isCenter(roomName):
 
 def isHighWayNeighbour(roomName):
     # 坐标末位 包含1或9即为 highway的邻居房
-    # print(roomName, re.match('^[WwEe]\\d*[19]+[NnSs]|.*[19]$', roomName))
     return re.match('^[WwEe]\\d*[19]+[NnSs]|.*[19]$', roomName) is not None
+
+
+def get_js_timestamp():
+    """
+    get javascript style timestamp :
+        new Date().getTime()
+    :return: timestamp
+    """
+    return int(time.time() * 1000)
