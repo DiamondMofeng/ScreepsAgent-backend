@@ -16,9 +16,17 @@ class API:
                  timeout: int or float = None,
                  ssl=None,
                  headers: dict = None,
-
+                 **kwargs
                  ):
+        """
 
+        :param token:
+        :param url:
+        :param timeout:
+        :param ssl:
+        :param headers:
+        :param kwargs:  args will be passed to aiohttp.ClientSession
+        """
         self.token = token
 
         headers = headers or {}
@@ -32,7 +40,7 @@ class API:
 
         self.ssl = ssl
 
-        self.session = aiohttp.ClientSession(headers=headers, timeout=_timeout)
+        self.session = aiohttp.ClientSession(headers=headers, timeout=_timeout, **kwargs)
 
     def __enter__(self, **kwargs):
         raise TypeError('please use "async with" instead')
@@ -62,7 +70,7 @@ class API:
                 return await self.get(url, **kwargs)  # TODO 尝试自动延迟
 
     async def post(self, url, **kwargs):
-        async with self.session.post(self.url + url, data=kwargs, ssl=self.ssl) as res:
+        async with self.session.post(self.url + url, json=kwargs, ssl=self.ssl) as res:
             # will raise Error if text type is not json
             try:
                 return await res.json()
