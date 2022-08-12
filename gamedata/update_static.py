@@ -122,7 +122,8 @@ async def update_mineralType_and_roomStatus_by_map_stats():
                     """)
                 rooms = [room_tup[0] for room_tup in c.fetchall()]
             i = 0
-            short_split_rooms = utils.split_list_by_len(rooms, 900)  # 单次请求900会被rate limit限制，然而超过900会payload too large
+            short_split_rooms = utils.split_list_by_len(rooms,
+                                                        config.MAP_STATS_ROOMS_PER_REQUEST)  # 不宜过大，会造成响应缓慢
             for short_rooms in short_split_rooms:
                 map_stats = await api.map_stats(short_rooms, shard, 'minerals0')
                 i += 1
@@ -248,7 +249,7 @@ async def update_room_info_by_room_objects():
             global progress_get_room_objects_sum, progress_get_room_objects_cur
             progress_get_room_objects_sum = len(rooms)
             progress_get_room_objects_cur = 0
-            semaphore = asyncio.Semaphore(6)
+            semaphore = asyncio.Semaphore(config.MAX_CONCURRENT_REQUESTS)
 
             async def show_progress_get_room_objects(room):
                 async with semaphore:
@@ -294,7 +295,7 @@ async def update_room_terrain():
             global progress_get_terrain_sum, progress_get_terrain_cur
             progress_get_terrain_sum = len(rooms)
             progress_get_terrain_cur = 0
-            semaphore = asyncio.Semaphore(6)
+            semaphore = asyncio.Semaphore(config.MAX_CONCURRENT_REQUESTS)
 
             async def show_progress_get_room_terrain(room):
                 async with semaphore:

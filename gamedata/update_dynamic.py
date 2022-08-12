@@ -30,7 +30,7 @@ async def update_room_objects():
                     """)
                 rooms = [row[0] for row in c.fetchall()]
 
-                semaphore = asyncio.Semaphore(config.MAX_CONCURRENT)
+                semaphore = asyncio.Semaphore(config.MAX_CONCURRENT_REQUESTS)
 
                 async def update_a_room(room):
                     async with semaphore:
@@ -118,12 +118,16 @@ async def update_map_stats():
                     AND last_update_timestamp < {utils.get_js_timestamp() - config.UPDATE_INTERVAL}
                     """)
                 rooms = [room_tup[0] for room_tup in c.fetchall()]
-            i = 0
-            short_split_rooms = utils.split_list_by_len(rooms, 900)  # 单次请求900会被rate limit限制，然而超过900会payload too large
+
+            print(f'updating dynamic map-stats: {shard}, {len(rooms)} rooms need to update')
+            i = 1
+            short_split_rooms = utils.split_list_by_len(rooms,
+                                                        config.MAP_STATS_ROOMS_PER_REQUEST)  # 过小会被token速率限制，过大相应缓慢..
             for short_rooms in short_split_rooms:
+                print(f'updating dynamic map-stats: {shard}: {i}/{len(short_split_rooms)}')
                 map_stats = await api.map_stats(short_rooms, shard, 'claim0')
                 i += 1
-                print(f'updating dynamic map-stats: {shard}: {i}/{len(short_split_rooms)}')
+                print(f'updating dynamic map-stats: data have fetched, submitting to db')
 
                 # db_services.update_mineral_type_by_map_stats_and_shard(map_stats, shard)
                 with db_services.get_database() as conn:
@@ -160,7 +164,11 @@ async def update_map_stats():
                     sql_replace = f"""
                             REPLACE INTO map_stats (room, shard, room_status, owner, owner_id, controller_level, is_power_enabled,
                                                     novice_area_timestamp, respawn_area_timestamp, last_update_timestamp)
-                            VALUES {','.join(f"('{room_stat['room']}', '{shard}', '{room_stat['status']}', '{room_stat['owner']}', '{room_stat['owner_id']}', {room_stat['controller_level']}, {room_stat['is_power_enabled']}, {room_stat['novice_area_stamp']}, {room_stat['respawn_area_stamp']}, {current_timestamp})" for room_stat in room_stats_s)}
+                            VALUES {','.join(f"('{room_stat['room']}', '{shard}', '{room_stat['status']}', '{room_stat['owner']}', '{room_stat['owner_id']}', {room_stat['controller_level']}, {room_stat['is_power_enabled']}, {room_stat['novice_area_stamp']}, {room_stat['respawn_area_stamp']}, {current_timestamp})"
+                                             for
+                                             room_stat
+                                             in
+                                             room_stats_s)}
 
                             """
 
@@ -173,7 +181,7 @@ async def update_map_stats():
 async def main():
     await asyncio.gather(
         update_map_stats(),
-        update_room_objects()
+        # update_room_objects()
     )
 
     pass
