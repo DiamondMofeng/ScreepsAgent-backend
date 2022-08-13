@@ -24,9 +24,16 @@ async def update_room_objects():
             with db_services.get_database() as conn:
                 c = conn.cursor()
                 c.execute(f"""
-                    SELECT room FROM room_objects 
-                    WHERE shard = '{shard}'
-                    AND last_update_timestamp < {utils.get_js_timestamp() - config.UPDATE_INTERVAL}
+                    SELECT room_objects.room
+                    FROM room_objects
+                    LEFT JOIN room_info
+                       ON room_objects.room = room_info.room
+                       AND room_objects.shard = room_info.shard
+                    WHERE 
+                    room_objects.last_update_timestamp < {utils.get_js_timestamp() - config.UPDATE_INTERVAL}
+                    AND room_info.shard = '{shard}'
+                    AND room_info.is_center = 0
+                    AND room_info.is_highway = 0;
                     """)
                 rooms = [row[0] for row in c.fetchall()]
 
@@ -38,10 +45,12 @@ async def update_room_objects():
                         room_objects: list = (await api.room_objects(room, shard))['objects']
                         room_objects_json = json.dumps(room_objects)
 
-                        def translation_single_quotes(s: str):
-                            return s.replace("'", r"\'")
+                        def translation_some_sign(s: str):
+                            s = s.replace("\\", r"\\")
+                            s = s.replace("'", r"\'")
+                            return s
 
-                        room_objects_json = translation_single_quotes(room_objects_json)
+                        room_objects_json = translation_some_sign(room_objects_json)
 
                         def try_find(_room_objects, _structure_type):
 
