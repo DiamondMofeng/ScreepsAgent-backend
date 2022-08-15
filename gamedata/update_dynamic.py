@@ -20,92 +20,92 @@ async def init_table():
 
 async def update_room_objects():
     async with screeps_api_aiohttp.API(token=config.token) as api:
-        for shard in SHARDS:
-            with db_services.get_database() as conn:
-                c = conn.cursor()
-                c.execute(f"""
-                    SELECT room_objects.room
+        with db_services.get_database() as conn:
+            c = conn.cursor()
+            c.execute(f"""
+                    SELECT room_objects.room, room_objects.shard
                     FROM room_objects
                     LEFT JOIN room_info
                        ON room_objects.room = room_info.room
                        AND room_objects.shard = room_info.shard
                     WHERE 
                     room_objects.last_update_timestamp < {utils.get_js_timestamp() - config.UPDATE_INTERVAL}
-                    AND room_info.shard = '{shard}'
+                    
                     AND room_info.is_center = 0
-                    AND room_info.is_highway = 0;
+                    AND room_info.is_highway = 0
+                    ORDER BY room_objects.last_update_timestamp
                     """)
-                rooms = [row[0] for row in c.fetchall()]
+            row_room_shard = c.fetchall()
 
-                semaphore = asyncio.Semaphore(config.MAX_CONCURRENT_REQUESTS)
+            semaphore = asyncio.Semaphore(config.MAX_CONCURRENT_REQUESTS)
 
-                async def update_a_room(room):
-                    async with semaphore:
-                        # print(f'updating dynamic room_objects of {shard}/{room}')
-                        room_objects: list = (await api.room_objects(room, shard))['objects']
-                        room_objects_json = json.dumps(room_objects)
+            async def update_a_room(room, shard):
+                async with semaphore:
+                    # print(f'updating dynamic room_objects of {shard}/{room}')
+                    room_objects: list = (await api.room_objects(room, shard))['objects']
+                    room_objects_json = json.dumps(room_objects)
 
-                        def translation_some_sign(s: str):
-                            s = s.replace("\\", r"\\")
-                            s = s.replace("'", r"\'")
-                            return s
+                    def translation_some_sign(s: str):
+                        s = s.replace("\\", r"\\")
+                        s = s.replace("'", r"\'")
+                        return s
 
-                        room_objects_json = translation_some_sign(room_objects_json)
+                    room_objects_json = translation_some_sign(room_objects_json)
 
-                        def try_find(_room_objects, _structure_type):
+                    def try_find(_room_objects, _structure_type):
 
-                            live_strut = [obj for obj in _room_objects if obj['type'] == _structure_type]
-                            if len(live_strut) > 0:
-                                return live_strut[0]
-                            ruin_strut = [
-                                obj for obj in _room_objects
-                                if
-                                obj['type'] == 'ruin'
-                                and
-                                obj['structure']['type'] == _structure_type
-                            ]
-                            if len(ruin_strut) > 0:
-                                return ruin_strut[0]
-                            return {}
+                        live_strut = [obj for obj in _room_objects if obj['type'] == _structure_type]
+                        if len(live_strut) > 0:
+                            return live_strut[0]
+                        ruin_strut = [
+                            obj for obj in _room_objects
+                            if
+                            obj['type'] == 'ruin'
+                            and
+                            obj['structure']['type'] == _structure_type
+                        ]
+                        if len(ruin_strut) > 0:
+                            return ruin_strut[0]
+                        return {}
 
-                        def get_used_capacity(room_object):
-                            if 'store' not in room_object:
-                                return 0
-                            # print(room_object['store'].values())
-                            return sum([amount for amount in room_object['store'].values() if type(amount) is int])
+                    def get_used_capacity(room_object):
+                        if 'store' not in room_object:
+                            return 0
+                        # print(room_object['store'].values())
+                        return sum([amount for amount in room_object['store'].values() if type(amount) is int])
 
-                        def get_store(room_object):
-                            if 'store' not in room_object:
-                                return '{}'
-                            return json.dumps(room_object['store'])
+                    def get_store(room_object):
+                        if 'store' not in room_object:
+                            return '{}'
+                        return json.dumps(room_object['store'])
 
-                        update_dict = {
-                            'last_update_timestamp': utils.get_js_timestamp(),
-                            'room_objects': room_objects_json
-                        }
+                    update_dict = {
+                        'last_update_timestamp': utils.get_js_timestamp(),
+                        'room_objects': room_objects_json
+                    }
 
-                        for structure_type in ['storage', 'terminal', 'factory']:
-                            structure = try_find(room_objects, structure_type)
+                    for structure_type in ['storage', 'terminal', 'factory']:
+                        structure = try_find(room_objects, structure_type)
 
-                            update_dict[f'{structure_type}_used_capacity'] = get_used_capacity(structure)
-                            update_dict[f'{structure_type}_store'] = get_store(structure)
-                            # c.execute(f"""
-                            #     UPDATE room_objects
-                            #     SET {structure_type}_used_capacity = {get_used_capacity(structure)},
-                            #         {structure_type}_store = '{get_store(structure)}'
-                            #     WHERE room = '{room}' AND shard = '{shard}'
-                            #     """)
+                        update_dict[f'{structure_type}_used_capacity'] = get_used_capacity(structure)
+                        update_dict[f'{structure_type}_store'] = get_store(structure)
+                        # c.execute(f"""
+                        #     UPDATE room_objects
+                        #     SET {structure_type}_used_capacity = {get_used_capacity(structure)},
+                        #         {structure_type}_store = '{get_store(structure)}'
+                        #     WHERE room = '{room}' AND shard = '{shard}'
+                        #     """)
 
-                        c.execute(f"""
+                    c.execute(f"""
                             UPDATE room_objects
                             SET {','.join([f"{k} = '{v}'" for k, v in update_dict.items()])}
                             WHERE room = '{room}' AND shard = '{shard}'
                         """)
 
-                        conn.commit()
-                        print(f'updated dynamic room_objects of {shard}/{room}')
+                    conn.commit()
+                    print(f'updated dynamic room_objects of {shard}/{room}')
 
-                await asyncio.gather(*[update_a_room(room) for room in rooms])
+            await asyncio.gather(*[update_a_room(room, shard) for (room, shard) in row_room_shard])
     pass
 
 
@@ -190,7 +190,7 @@ async def update_map_stats():
 async def main():
     await asyncio.gather(
         update_map_stats(),
-        # update_room_objects()
+        update_room_objects()
     )
 
     pass
