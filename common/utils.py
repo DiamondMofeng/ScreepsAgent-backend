@@ -132,3 +132,20 @@ def get_js_timestamp():
     :return: timestamp
     """
     return int(time.time() * 1000)
+
+
+def is_valid_room_name(roomName):
+    return re.match('^[WwEe]\d+[NnSs]\d+$', roomName) is not None
+
+
+def is_valid_rooms_list(rooms: list):
+    """
+    检查rooms是否合法
+    :param rooms:
+    :return:
+    """
+    return len(rooms) > 0 and all([is_valid_room_name(room) for room in rooms])
+
+
+def is_valid_shard(shard):
+    return re.match('^shard[0-3]$', shard) is not None

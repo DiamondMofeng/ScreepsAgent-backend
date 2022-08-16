@@ -1,6 +1,5 @@
 import sqlite3
 import os
-import sys
 
 import pymysql
 import requests
@@ -211,6 +210,28 @@ def update_mineral_type_by_map_stats_and_shard(map_stats, shard):
                 f"UPDATE room_info SET mineral_type = '{mineral_type}' WHERE room = '{roomName}' AND shard = '{shard}'"
             )
         conn.commit()
+
+
+def rooms_info(rooms, shard):
+    with get_database() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"""
+            {
+            ' UNION ALL '.join([f"SELECT * FROM room_info WHERE room = '{room}' AND shard = '{shard}'"
+                                for room in rooms])
+            }
+            """
+        )
+        col_names = [desc[0] for desc in c.description]
+        roomCol = col_names.index('room')
+        return {
+            row[roomCol]: dict(zip(col_names, row))
+            for
+            row in c.fetchall()
+        }
+        # print(c.description)
+        # return c  .fetchall()
 
 
 if __name__ == '__main__':
