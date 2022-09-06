@@ -9,6 +9,7 @@ def get_database(database_type=config.DB_TYPE):
     if database_type == 'mysql':
         return pymysql.connect(
             host=config.MYSQL_HOST,
+            port=config.MYSQL_PORT,
             user=config.MYSQL_USER,
             passwd=config.MYSQL_PASSWORD,
             db=config.MYSQL_DB)
