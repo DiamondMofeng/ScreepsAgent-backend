@@ -42,24 +42,25 @@ def intInDictToFloat(Dict: dict):
 
 async def fetchFromPrivate(agent, session: aiohttp.ClientSession):
     # 先获取临时token，再获取memory
-    async with session.post(f'''{agent['private_url']}/api/auth/signin''',
-                            data={'email': agent['private_username'],
-                                  'password': agent['private_password']
-                                  },
-                            ssl=ssl_context) as res:
+    async with session.post(
+            f'''{agent['private_url']}/api/auth/signin''',
+            json={'email': agent['private_username'],
+                  'password': agent['private_password'],
+                  },
+            ssl=ssl_context,
+    ) as res:
         if res.status == 401:
             raise Exception('401 not authorized')
         token = json.loads(await res.text())['token']
-    async with session.post(f'''{agent['private_url']}/api/auth/signin''',
-                            data={
-                                "shard": agent['shard'],
-                                "path": agent['path']
-                            },
-                            header={
-                                "X-Token": token,
-                                "X-Username": "foobar"
-                            },
-                            ssl=ssl_context) as res:
+
+    async with session.get(
+            f'''{agent['private_url']}/api/user/memory?shard={agent["shard"]}&path={agent["path"]}''',
+            headers={
+                "X-Token": token,
+                "X-Username": "foobar",
+            },
+            ssl=ssl_context,
+    ) as res:
         return {
             "status_code": res.status,
             "text": await res.text()
