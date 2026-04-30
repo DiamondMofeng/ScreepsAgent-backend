@@ -37,7 +37,7 @@ ssl_context = ssl.create_default_context(cafile=certifi.where())  # my server ha
 rooms_len_sum = -1
 rooms_len_cur = -1
 
-shards = ['shard0', 'shard1', 'shard2', 'shard3']
+shards = ['shard0', 'shard1', 'shard2', 'shard3', 'shardX']
 shards.reverse()
 
 folder_path = sys.path[0] + '/' + config_update.folder_path

@@ -28,7 +28,7 @@ router_portals = Blueprint('template', __name__)
 def get():
     if request.method != 'GET':
         return ERR_UNKNOWN_ENDPOINT
-    if "shard" not in request.args or re.match(r"^(shard)[0-3]$", request.args["shard"]) is None:
+    if "shard" not in request.args or re.match(r"^(shard)[0-3X]$", request.args["shard"]) is None:
         return ERR_INVALID_PARAMS
 
     pass
@@ -47,10 +47,8 @@ def find_portal_route():
             return ERR_UNKNOWN_ENDPOINT  # 加这个else只是为了编译器不报warning
 
         # 检查输入的from和to是否合法
-        re_check_from_to = r"^(shard)[0-3]_[WE]\d+[NS]\d+$"
+        re_check_from_to = r"^(shard)[0-3X]_[WE]\d+[NS]\d+$"
         if re.match(re_check_from_to, _from) is None or re.match(re_check_from_to, _to) is None:
-            print(re.match(re_check_from_to, _from))
-            print(re.match(re_check_from_to, _to))
             return ERR_INVALID_PARAMS
     except Exception as e:
         '''either KeyError or BadRequestKeyError'''
